@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatGPT</title>
+</head>
+<body>
+  <p>const EC = require('elliptic').ec;
+const bip39 = require('bip39');
+const hdkey = require('hdkey');
+const crypto = require('crypto');
+
+const ec = new EC('ed25519');
+
+class Keygen {
+  constructor() {
+    try {
+      // Generate a BIP39 mnemonic phrase (12 words)
+      this.mnemonic = bip39.generateMnemonic();
+
+      // Derive a seed from the mnemonic phrase
+      const seed = bip39.mnemonicToSeedSync(this.mnemonic);
+
+      // Create a root HDNode from the seed
+      const root = hdkey.fromMasterSeed(seed);
+
+      // Derive a child HDNode for a specific path
+      const path = "m/44'/220'/0'/0/0";
+      const child = root.derive(path);
+
+      // Extract the private and public keys from the child HDNode
+      this.privateKey = child.privateKey.toString('hex');
+      this.publicKey = child.publicKey.toString('hex');
+
+      // Create an elliptic curve object using secp256k1 curve
+      this.ec = ec;
+    } catch (error) {
+      console.error('Error generating key pair:', error);
+      throw error;
+    }
+  }
+
+  getCompressedPublicKey() {
+    // Get the public key in uncompressed format
+    const publicKey = this.ec.keyFromPublic(this.publicKey, 'hex').getPublic('hex');
+
+    // Convert the public key to a buffer
+    const publicKeyBuffer = Buffer.from(publicKey, 'hex');
+
+    // Get the x-coordinate
+    const x = publicKeyBuffer.slice(1, 33);
+
+    // Determine whether the y-coordinate is even or odd
+    const yIsEven = (publicKeyBuffer[0] & 1) === 0;
+
+    // Concatenate the x-coordinate with the single bit indicating whether y is even or odd
+    let compressedPublicKey = Buffer.concat([Buffer.from([yIsEven ? 0x02 : 0x03]), x]);
+
+    // Convert the compressed public key to a hexadecimal string
+    compressedPublicKey = compressedPublicKey.toString('hex');
+
+    return compressedPublicKey;
+  }
+
+  // Create a function to sign a message with the private key
+  sign(message) {
+    // Create a hash of the message using SHA-256
+    const hash = crypto.createHash('sha256').update(message).digest('hex');
+  
+    // Sign the hash using the private key
+    const signature = this.ec.sign(hash, this.privateKey, { canonical: true });
+  
+    // Return the signature in DER format
+    return signature.toDER('hex');
+  }
+
+  verify(message, signature, publicKey) {
+    // Create a hash of the message using SHA-256
+    const hash = crypto.createHash('sha256').update(message).digest('hex');
+  
+    // Convert the public key to an EC key object
+    const key = this.ec.keyFromPublic(publicKey, 'hex');
+  
+    // Verify the signature using the key and the hash
+    const isSignatureValid = key.verify(hash, signature);
+  
+    return isSignatureValid;
+  }
+  
+}
+
+const keygen = new Keygen();
+const message = 'Hello, world!';
+const signature = '30440220042b67b844c0fdfd9e78f38d2f0d827ab0aeef23afab7bedd18dcfa155071bf7022005b709d80c42db6fd0b48011e5986b6ecb0334c2b2329c656baa4abe88d2e717';
+const publicKey = '02035d3f49806f6326bac690197c463d3e53862d3957fae1d94d0f8e34ad8fae54'
+
+// console.log('Mnemonic phrase:', keygen.mnemonic);
+// console.log('Compressed public key:', keygen.publicKey);
+// console.log('Private key:', keygen.privateKey);
+// console.log('Signature:', keygen.sign(message));
+console.log('Verify:', keygen.verify(message, signature, publicKey));
+
+module.exports = Keygen;
+
+
+
+  </p>
+</body>
+</html>
